@@ -16,7 +16,9 @@ A Blazor Server application that provides a user-friendly web interface for ripg
 2. **Ripgrep (rg)** - Must be installed and available in your PATH
    - Download from [https://github.com/BurntSushi/ripgrep/releases](https://github.com/BurntSushi/ripgrep/releases)
    - Or install via package manager:
-     - Windows: `winget install BurntSushi.ripgrep.MSVC` or `choco install ripgrep`
+     - Windows:
+       - `winget install BurntSushi.ripgrep.MSVC`
+       - `choco install ripgrep`
      - Ensure `rg` command is available from command prompt
 
 ## Installation & Running
@@ -32,6 +34,24 @@ A Blazor Server application that provides a user-friendly web interface for ripg
    dotnet run
    ```
 5. **Open your browser** and navigate to the URL shown in the console (typically `https://localhost:5001` or `http://localhost:5000`)
+
+## Building Windows Executable
+
+To create a standalone Windows .exe file:
+
+### Self-Contained (Recommended)
+```bash
+build-windows.bat
+```
+Creates `publish\win-x64\RipgrepUI.exe` (~70-100MB) - no .NET runtime required on target machine.
+
+### Framework-Dependent
+```bash
+build-windows-framework.bat
+```
+Creates `publish-framework\win-x64\RipgrepUI.exe` (~10-20MB) - requires .NET 8 Runtime on target machine.
+
+For detailed deployment instructions, installation options, and troubleshooting, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Usage
 
