@@ -1,0 +1,58 @@
+{
+  "Version": 1,
+  "Hash": "honUw2a/fJm6lSWB+/MQ+Fe5myK7n+Sf+qCpKDtD9s4=",
+  "Source": "RipgrepUI",
+  "BasePath": "_content/RipgrepUI",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "RipgrepUI/wwwroot",
+      "Source": "RipgrepUI",
+      "ContentRoot": "/home/jasondennis/code/ripgrep_ui/wwwroot/",
+      "BasePath": "_content/RipgrepUI",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "/home/jasondennis/code/ripgrep_ui/wwwroot/css/site.css",
+      "SourceId": "RipgrepUI",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/jasondennis/code/ripgrep_ui/wwwroot/",
+      "BasePath": "_content/RipgrepUI",
+      "RelativePath": "css/site.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/css/site.css"
+    },
+    {
+      "Identity": "/home/jasondennis/code/ripgrep_ui/wwwroot/js/fileSystem.js",
+      "SourceId": "RipgrepUI",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/jasondennis/code/ripgrep_ui/wwwroot/",
+      "BasePath": "_content/RipgrepUI",
+      "RelativePath": "js/fileSystem.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/js/fileSystem.js"
+    }
+  ]
+}

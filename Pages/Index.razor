@@ -1,0 +1,362 @@
+@page "/"
+@using RipgrepUI.Models
+@inject RipgrepService RipgrepService
+@inject DirectoryBrowserService DirectoryService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Ripgrep UI</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="search-form">
+                <EditForm Model="@searchModel" OnValidSubmit="@HandleSearch">
+                    <DataAnnotationsValidator />
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="pattern" class="form-label">Search Pattern</label>
+                                <InputText id="pattern" class="form-control" @bind-Value="searchModel.Pattern" placeholder="Enter regex pattern..." />
+                                <ValidationMessage For="@(() => searchModel.Pattern)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="directory" class="form-label">Directory</label>
+                                <div class="input-group">
+                                    <InputText id="directory" class="form-control" @bind-Value="searchModel.Directory" placeholder="C:\path\to\search" />
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="BrowseDirectory">Browse</button>
+                                </div>
+                                <ValidationMessage For="@(() => searchModel.Directory)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="fileTypes" class="form-label">File Types</label>
+                                <InputText id="fileTypes" class="form-control" @bind-Value="searchModel.FileTypes" placeholder="*.cs,*.js,*.py (optional)" />
+                                <small class="form-text text-muted">Comma-separated file patterns</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Options</label>
+                                <div class="form-check">
+                                    <InputCheckbox id="caseSensitive" class="form-check-input" @bind-Value="searchModel.CaseSensitive" />
+                                    <label class="form-check-label" for="caseSensitive">Case Sensitive</label>
+                                </div>
+                                <div class="form-check">
+                                    <InputCheckbox id="wholeWord" class="form-check-input" @bind-Value="searchModel.WholeWord" />
+                                    <label class="form-check-label" for="wholeWord">Whole Word</label>
+                                </div>
+                                <div class="form-check">
+                                    <InputCheckbox id="includeHidden" class="form-check-input" @bind-Value="searchModel.IncludeHidden" />
+                                    <label class="form-check-label" for="includeHidden">Include Hidden Files</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-auto">
+                            <div class="mb-3">
+                                <label for="contextLines" class="form-label">Context Lines</label>
+                                <InputNumber id="contextLines" class="form-control context-lines-input" @bind-Value="searchModel.ContextLines" min="0" max="10" />
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="mb-3">
+                                <label for="maxResults" class="form-label">Max Results</label>
+                                <InputNumber id="maxResults" class="form-control max-results-input" @bind-Value="searchModel.MaxResults" min="10" max="10000" />
+                            </div>
+                        </div>
+                        <div class="col-auto d-flex align-items-end">
+                            <div class="mb-3">
+                                <button type="submit" class="btn btn-primary me-2" disabled="@isSearching">
+                                    @if (isSearching)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        <span>Searching...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Search</span>
+                                    }
+                                </button>
+                                <button type="button" class="btn btn-secondary" @onclick="ClearSearch">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(commandLine))
+                    {
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Command Line</label>
+                                    <div class="command-line-display">
+                                        <code>@commandLine</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </EditForm>
+            </div>
+
+            @if (searchResults.Any())
+            {
+                <div class="search-results">
+                    <div class="p-3 bg-light border-bottom">
+                        <strong>@searchResults.Count</strong> results found in <strong>@searchDuration.TotalMilliseconds.ToString("F0")</strong>ms
+                    </div>
+                    @foreach (var result in searchResults)
+                    {
+                        <div class="result-item">
+                            <div class="result-file">
+                                <div class="file-header">
+                                    <a href="@GetFileUrl(result.File)" class="file-link" title="Click to open file (may require browser configuration)">
+                                        @result.File
+                                    </a>
+                                    <div class="file-actions">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => CopyToClipboard(result.File)" title="Copy file path">
+                                            📋
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => CopyVSCodeCommand(result.File)" title="Copy VS Code command">
+                                            VS
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success" @onclick="() => CopyNotepadCommand(result.File)" title="Copy Notepad++ command">
+                                            N++
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowOpenInstructions(result.File)" title="Show opening instructions">
+                                            ?
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            @foreach (var match in result.Matches)
+                            {
+                                <div class="result-line">
+                                    <span class="result-line-number" @onclick="() => CopyVSCodeLineCommand(result.File, match.LineNumber)" 
+                                          title="Click to copy VS Code command for line @match.LineNumber">@match.LineNumber:</span>
+                                    <span>@((MarkupString)HighlightMatches(match.Content, searchModel.Pattern))</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else if (hasSearched && !isSearching)
+            {
+                <div class="alert alert-info">
+                    No results found for pattern "<strong>@searchModel.Pattern</strong>".
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">
+                    @errorMessage
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<DirectoryBrowser OnDirectorySelected="OnDirectorySelected" @ref="directoryBrowser" />
+
+<!-- File Opening Instructions Modal -->
+<div class="modal fade" id="openInstructionsModal" tabindex="-1" aria-labelledby="openInstructionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="openInstructionsModalLabel">How to Open Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Method 1: Copy Commands (Recommended)</h6>
+                <ul>
+                    <li><strong>VS Code:</strong> Click "VS" button, then paste in terminal</li>
+                    <li><strong>Notepad++:</strong> Click "N++" button, then paste in terminal</li>
+                    <li><strong>File Path:</strong> Click "📋" button to copy path for any editor</li>
+                </ul>
+
+                <h6>Method 2: Enable file:// URLs in Chrome</h6>
+                <ol>
+                    <li>Close Chrome completely</li>
+                    <li>Create a shortcut with flag: <code>--allow-file-access-from-files</code></li>
+                    <li>Or use Chrome flag: <code>chrome://flags/#file-system-access-api</code></li>
+                </ol>
+
+                <h6>Method 3: Use Firefox</h6>
+                <p>Firefox typically allows file:// URLs by default.</p>
+
+                <h6>Current File:</h6>
+                <div class="alert alert-info">
+                    <code>@selectedFilePath</code>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" @onclick="() => CopyToClipboard(selectedFilePath)">Copy File Path</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private SearchModel searchModel = new();
+    private List<SearchResult> searchResults = new();
+    private bool isSearching = false;
+    private bool hasSearched = false;
+    private string errorMessage = string.Empty;
+    private string commandLine = string.Empty;
+    private TimeSpan searchDuration;
+    private DirectoryBrowser? directoryBrowser;
+    private string selectedFilePath = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        searchModel.Directory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        searchModel.MaxResults = 1000;
+        searchModel.ContextLines = 0;
+    }
+
+    private async Task HandleSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchModel.Pattern))
+            return;
+
+        isSearching = true;
+        hasSearched = true;
+        errorMessage = string.Empty;
+        searchResults.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var startTime = DateTime.Now;
+            var result = await RipgrepService.SearchAsync(searchModel);
+            searchResults = result.Results;
+            commandLine = result.CommandLine;
+            searchDuration = DateTime.Now - startTime;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Search failed: {ex.Message}";
+        }
+        finally
+        {
+            isSearching = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearSearch()
+    {
+        searchModel.Pattern = string.Empty;
+        searchResults.Clear();
+        errorMessage = string.Empty;
+        commandLine = string.Empty;
+        hasSearched = false;
+        StateHasChanged();
+    }
+
+    private async Task BrowseDirectory()
+    {
+        if (directoryBrowser != null)
+        {
+            await directoryBrowser.ShowAsync();
+        }
+    }
+
+    private void OnDirectorySelected(string selectedDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(selectedDirectory))
+        {
+            searchModel.Directory = selectedDirectory;
+            StateHasChanged();
+        }
+    }
+
+    private string HighlightMatches(string content, string pattern)
+    {
+        if (string.IsNullOrEmpty(pattern))
+            return System.Web.HttpUtility.HtmlEncode(content);
+
+        try
+        {
+            var regex = new System.Text.RegularExpressions.Regex(pattern, 
+                searchModel.CaseSensitive ? System.Text.RegularExpressions.RegexOptions.None : System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            
+            var encodedContent = System.Web.HttpUtility.HtmlEncode(content);
+            return regex.Replace(encodedContent, match => $"<span class=\"match-highlight\">{match.Value}</span>");
+        }
+        catch
+        {
+            return System.Web.HttpUtility.HtmlEncode(content);
+        }
+    }
+
+    private string GetFileUrl(string filePath)
+    {
+        // Convert Windows path to file URL
+        // Replace backslashes with forward slashes and encode spaces
+        var normalizedPath = filePath.Replace('\\', '/');
+        return $"file:///{normalizedPath.Replace(" ", "%20")}";
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            // Could add a toast notification here
+        }
+        catch (Exception)
+        {
+            // Fallback for older browsers
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("eval", $"prompt('Copy this text:', '{text.Replace("'", "\\'")}')");
+            }
+            catch
+            {
+                // Silent fail - clipboard operations are not critical
+            }
+        }
+    }
+
+    private async Task CopyVSCodeCommand(string filePath)
+    {
+        var command = $"code \"{filePath}\"";
+        await CopyToClipboard(command);
+        // Could show a toast here: "VS Code command copied! Paste in terminal."
+    }
+
+    private async Task CopyNotepadCommand(string filePath)
+    {
+        var command = $"notepad++ \"{filePath}\"";
+        await CopyToClipboard(command);
+        // Could show a toast here: "Notepad++ command copied! Paste in terminal."
+    }
+
+    private async Task ShowOpenInstructions(string filePath)
+    {
+        selectedFilePath = filePath;
+        await JSRuntime.InvokeVoidAsync("eval", "new bootstrap.Modal(document.getElementById('openInstructionsModal')).show()");
+    }
+
+    private async Task CopyVSCodeLineCommand(string filePath, int lineNumber)
+    {
+        var command = $"code \"{filePath}:{lineNumber}\"";
+        await CopyToClipboard(command);
+        // This will open VS Code at the specific line number
+    }
+}

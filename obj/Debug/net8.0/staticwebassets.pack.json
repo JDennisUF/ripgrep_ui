@@ -1,0 +1,29 @@
+{
+  "Files": [
+    {
+      "Id": "/home/jasondennis/code/ripgrep_ui/wwwroot/css/site.css",
+      "PackagePath": "staticwebassets/css/site.css"
+    },
+    {
+      "Id": "/home/jasondennis/code/ripgrep_ui/wwwroot/js/fileSystem.js",
+      "PackagePath": "staticwebassets/js/fileSystem.js"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.RipgrepUI.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.RipgrepUI.props",
+      "PackagePath": "build\\RipgrepUI.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.RipgrepUI.props",
+      "PackagePath": "buildMultiTargeting\\RipgrepUI.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.RipgrepUI.props",
+      "PackagePath": "buildTransitive\\RipgrepUI.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

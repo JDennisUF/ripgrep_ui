@@ -1,0 +1,184 @@
+@inject DirectoryBrowserService DirectoryService
+@inject IJSRuntime JSRuntime
+
+<div class="modal fade" id="directoryBrowserModal" tabindex="-1" aria-labelledby="directoryBrowserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="directoryBrowserModalLabel">Select Directory</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="currentPath" class="form-label">Current Path</label>
+                    <div class="input-group">
+                        <input type="text" id="currentPath" class="form-control" @bind="currentPath" @onkeypress="OnPathKeyPress" />
+                        <button class="btn btn-outline-secondary" type="button" @onclick="NavigateToPath">Go</button>
+                        <button class="btn btn-outline-secondary" type="button" @onclick="NavigateUp" disabled="@(string.IsNullOrEmpty(parentPath))">Up</button>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h6>Common Directories</h6>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        @foreach (var dir in commonDirectories)
+                        {
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => NavigateToDirectory(dir)">
+                                @GetDirectoryDisplayName(dir)
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @if (isLoading)
+                {
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-warning">
+                        @errorMessage
+                    </div>
+                }
+                else if (subDirectories.Any())
+                {
+                    <div class="mb-3">
+                        <h6>Subdirectories</h6>
+                        <div class="directory-list">
+                            @foreach (var dir in subDirectories)
+                            {
+                                <div class="directory-item" @onclick="() => NavigateToDirectory(dir.FullName)">
+                                    <i class="folder-icon">📁</i>
+                                    <span>@dir.Name</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(currentPath))
+                {
+                    <div class="alert alert-info">
+                        No subdirectories found or access denied.
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="SelectCurrentDirectory" disabled="@(!DirectoryService.IsValidDirectory(currentPath))">
+                    Select This Directory
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback<string> OnDirectorySelected { get; set; }
+
+    private string currentPath = string.Empty;
+    private string? parentPath;
+    private List<string> commonDirectories = new();
+    private List<DirectoryInfo> subDirectories = new();
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        commonDirectories = DirectoryService.GetCommonDirectories();
+        
+        // Set initial path to user profile
+        currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        LoadSubDirectories();
+    }
+
+    public async Task ShowAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("bootstrap.Modal.getOrCreateInstance", "#directoryBrowserModal").AsTask();
+        await JSRuntime.InvokeVoidAsync("eval", "bootstrap.Modal.getOrCreateInstance('#directoryBrowserModal').show()");
+    }
+
+    private void NavigateToDirectory(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !DirectoryService.IsValidDirectory(path))
+            return;
+
+        currentPath = path;
+        LoadSubDirectories();
+    }
+
+    private void NavigateToPath()
+    {
+        LoadSubDirectories();
+    }
+
+    private void NavigateUp()
+    {
+        if (!string.IsNullOrEmpty(parentPath))
+        {
+            currentPath = parentPath;
+            LoadSubDirectories();
+        }
+    }
+
+    private void LoadSubDirectories()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            subDirectories = DirectoryService.GetSubDirectories(currentPath);
+            parentPath = DirectoryService.GetParentDirectory(currentPath);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading directory: {ex.Message}";
+            subDirectories.Clear();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectCurrentDirectory()
+    {
+        if (DirectoryService.IsValidDirectory(currentPath))
+        {
+            await OnDirectorySelected.InvokeAsync(currentPath);
+            await JSRuntime.InvokeVoidAsync("bootstrap.Modal.getOrCreateInstance", "#directoryBrowserModal").AsTask();
+            await JSRuntime.InvokeVoidAsync("eval", "bootstrap.Modal.getOrCreateInstance('#directoryBrowserModal').hide()");
+        }
+    }
+
+    private void OnPathKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            NavigateToPath();
+        }
+    }
+
+    private string GetDirectoryDisplayName(string path)
+    {
+        try
+        {
+            var dirInfo = new DirectoryInfo(path);
+            return dirInfo.Name switch
+            {
+                "" => path, // For drive roots like "C:\"
+                _ => dirInfo.Name
+            };
+        }
+        catch
+        {
+            return Path.GetFileName(path) ?? path;
+        }
+    }
+}
