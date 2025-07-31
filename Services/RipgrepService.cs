@@ -160,16 +160,24 @@ public class RipgrepService
                 {
                     if (root.TryGetProperty("data", out var dataElement))
                     {
-                        var path = dataElement.GetProperty("path").GetProperty("text").GetString() ?? "";
+                        var relativePath = dataElement.GetProperty("path").GetProperty("text").GetString() ?? "";
                         var lineNumber = dataElement.GetProperty("line_number").GetInt32();
                         var lineText = dataElement.GetProperty("lines").GetProperty("text").GetString() ?? "";
 
-                        if (!results.ContainsKey(path))
+                        // Convert relative path to absolute path using the search directory
+                        var absolutePath = Path.IsPathRooted(relativePath) 
+                            ? relativePath 
+                            : Path.Combine(searchModel.Directory, relativePath);
+                        
+                        // Normalize the path
+                        absolutePath = Path.GetFullPath(absolutePath);
+
+                        if (!results.ContainsKey(absolutePath))
                         {
-                            results[path] = new SearchResult { File = path };
+                            results[absolutePath] = new SearchResult { File = absolutePath };
                         }
 
-                        results[path].Matches.Add(new SearchMatch
+                        results[absolutePath].Matches.Add(new SearchMatch
                         {
                             LineNumber = lineNumber,
                             Content = lineText.TrimEnd('\n', '\r')

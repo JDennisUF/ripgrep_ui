@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RipgrepUI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2d8dff5a61ae4f6c6f6aa6617ce477a90069df58")]
 [assembly: System.Reflection.AssemblyProductAttribute("RipgrepUI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RipgrepUI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -8,6 +8,8 @@ builder.Services.AddSignalR();
 
 builder.Services.AddScoped<RipgrepService>();
 builder.Services.AddScoped<DirectoryBrowserService>();
+builder.Services.AddSingleton<EditorSettingsService>();
+builder.Services.AddScoped<EditorLaunchService>();
 
 var app = builder.Build();
 

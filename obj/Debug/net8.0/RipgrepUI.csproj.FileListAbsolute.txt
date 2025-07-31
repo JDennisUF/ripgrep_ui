@@ -30,3 +30,4 @@
 /home/jasondennis/code/ripgrep_ui/obj/Debug/net8.0/RipgrepUI.pdb
 /home/jasondennis/code/ripgrep_ui/obj/Debug/net8.0/RipgrepUI.genruntimeconfig.cache
 /home/jasondennis/code/ripgrep_ui/obj/Debug/net8.0/ref/RipgrepUI.dll
+/home/jasondennis/code/ripgrep_ui/obj/Debug/net8.0/RipgrepUI.sourcelink.json

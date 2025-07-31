@@ -2,6 +2,8 @@
 @using RipgrepUI.Models
 @inject RipgrepService RipgrepService
 @inject DirectoryBrowserService DirectoryService
+@inject EditorLaunchService EditorService
+@inject EditorSettingsService SettingsService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Ripgrep UI</PageTitle>
@@ -121,21 +123,13 @@
                         <div class="result-item">
                             <div class="result-file">
                                 <div class="file-header">
-                                    <a href="@GetFileUrl(result.File)" class="file-link" title="Click to open file (may require browser configuration)">
+                                    <a href="#" class="file-link" @onclick="() => LaunchPreferredEditor(result.File)" @onclick:preventDefault="true" 
+                                       title="Click to open in preferred editor">
                                         @result.File
                                     </a>
                                     <div class="file-actions">
                                         <button class="btn btn-sm btn-outline-secondary" @onclick="() => CopyToClipboard(result.File)" title="Copy file path">
                                             📋
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => CopyVSCodeCommand(result.File)" title="Copy VS Code command">
-                                            VS
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-success" @onclick="() => CopyNotepadCommand(result.File)" title="Copy Notepad++ command">
-                                            N++
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowOpenInstructions(result.File)" title="Show opening instructions">
-                                            ?
                                         </button>
                                     </div>
                                 </div>
@@ -143,8 +137,8 @@
                             @foreach (var match in result.Matches)
                             {
                                 <div class="result-line">
-                                    <span class="result-line-number" @onclick="() => CopyVSCodeLineCommand(result.File, match.LineNumber)" 
-                                          title="Click to copy VS Code command for line @match.LineNumber">@match.LineNumber:</span>
+                                    <span class="result-line-number" @onclick="() => LaunchPreferredEditorAtLine(result.File, match.LineNumber)" 
+                                          title="Click to open file at line @match.LineNumber in preferred editor">@match.LineNumber:</span>
                                     <span>@((MarkupString)HighlightMatches(match.Content, searchModel.Pattern))</span>
                                 </div>
                             }
@@ -333,30 +327,40 @@
         }
     }
 
-    private async Task CopyVSCodeCommand(string filePath)
+    private async Task LaunchPreferredEditor(string filePath)
     {
-        var command = $"code \"{filePath}\"";
-        await CopyToClipboard(command);
-        // Could show a toast here: "VS Code command copied! Paste in terminal."
+        // Safety check: Ensure file exists before attempting to open
+        if (!System.IO.File.Exists(filePath))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"File not found: {filePath}\n\nThis may indicate a path resolution issue. Please check the file location.");
+            return;
+        }
+
+        var success = EditorService.LaunchPreferredEditor(filePath);
+        if (!success)
+        {
+            var settings = SettingsService.GetSettings();
+            var editorName = EditorInfo.SupportedEditors.FirstOrDefault(e => e.Type == settings.PreferredEditor)?.DisplayName ?? "Editor";
+            await JSRuntime.InvokeVoidAsync("alert", $"{editorName} could not be launched. Please check your editor settings.\n\nFile: {filePath}");
+        }
     }
 
-    private async Task CopyNotepadCommand(string filePath)
+    private async Task LaunchPreferredEditorAtLine(string filePath, int lineNumber)
     {
-        var command = $"notepad++ \"{filePath}\"";
-        await CopyToClipboard(command);
-        // Could show a toast here: "Notepad++ command copied! Paste in terminal."
+        // Safety check: Ensure file exists before attempting to open
+        if (!System.IO.File.Exists(filePath))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"File not found: {filePath}\n\nThis may indicate a path resolution issue. Please check the file location.");
+            return;
+        }
+
+        var success = EditorService.LaunchPreferredEditor(filePath, lineNumber);
+        if (!success)
+        {
+            var settings = SettingsService.GetSettings();
+            var editorName = EditorInfo.SupportedEditors.FirstOrDefault(e => e.Type == settings.PreferredEditor)?.DisplayName ?? "Editor";
+            await JSRuntime.InvokeVoidAsync("alert", $"{editorName} could not be launched. Please check your editor settings.\n\nFile: {filePath}\nLine: {lineNumber}");
+        }
     }
 
-    private async Task ShowOpenInstructions(string filePath)
-    {
-        selectedFilePath = filePath;
-        await JSRuntime.InvokeVoidAsync("eval", "new bootstrap.Modal(document.getElementById('openInstructionsModal')).show()");
-    }
-
-    private async Task CopyVSCodeLineCommand(string filePath, int lineNumber)
-    {
-        var command = $"code \"{filePath}:{lineNumber}\"";
-        await CopyToClipboard(command);
-        // This will open VS Code at the specific line number
-    }
 }

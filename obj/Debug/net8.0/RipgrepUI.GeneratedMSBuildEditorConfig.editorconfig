@@ -26,6 +26,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9EaXJlY3RvcnlCcm93c2VyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[/home/jasondennis/code/ripgrep_ui/Components/EditorSettingsModal.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9FZGl0b3JTZXR0aW5nc01vZGFsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [/home/jasondennis/code/ripgrep_ui/Pages/History.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXMvSGlzdG9yeS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 

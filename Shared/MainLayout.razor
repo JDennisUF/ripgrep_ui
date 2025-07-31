@@ -2,7 +2,7 @@
 
 <div class="page">
     <div class="sidebar">
-        <NavMenu />
+        <NavMenu OnShowSettings="ShowEditorSettings" />
     </div>
 
     <main>
@@ -15,3 +15,17 @@
         </article>
     </main>
 </div>
+
+<EditorSettingsModal @ref="editorSettingsModal" />
+
+@code {
+    private EditorSettingsModal? editorSettingsModal;
+
+    private async Task ShowEditorSettings()
+    {
+        if (editorSettingsModal != null)
+        {
+            await editorSettingsModal.ShowAsync();
+        }
+    }
+}
