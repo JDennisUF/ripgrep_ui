@@ -10,4 +10,5 @@ public class SearchMatch
 {
     public int LineNumber { get; set; }
     public string Content { get; set; } = string.Empty;
+    public bool IsMatch { get; set; } = true;
 }

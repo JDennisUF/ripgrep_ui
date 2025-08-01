@@ -10,6 +10,7 @@ builder.Services.AddScoped<RipgrepService>();
 builder.Services.AddScoped<DirectoryBrowserService>();
 builder.Services.AddSingleton<EditorSettingsService>();
 builder.Services.AddScoped<EditorLaunchService>();
+builder.Services.AddSingleton<HistoryService>();
 
 var app = builder.Build();
 

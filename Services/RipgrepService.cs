@@ -156,32 +156,37 @@ public class RipgrepService
                 var jsonDoc = JsonDocument.Parse(line);
                 var root = jsonDoc.RootElement;
 
-                if (root.TryGetProperty("type", out var typeElement) && typeElement.GetString() == "match")
+                if (root.TryGetProperty("type", out var typeElement))
                 {
-                    if (root.TryGetProperty("data", out var dataElement))
+                    var entryType = typeElement.GetString();
+                    if (entryType == "match" || entryType == "context")
                     {
-                        var relativePath = dataElement.GetProperty("path").GetProperty("text").GetString() ?? "";
-                        var lineNumber = dataElement.GetProperty("line_number").GetInt32();
-                        var lineText = dataElement.GetProperty("lines").GetProperty("text").GetString() ?? "";
-
-                        // Convert relative path to absolute path using the search directory
-                        var absolutePath = Path.IsPathRooted(relativePath) 
-                            ? relativePath 
-                            : Path.Combine(searchModel.Directory, relativePath);
-                        
-                        // Normalize the path
-                        absolutePath = Path.GetFullPath(absolutePath);
-
-                        if (!results.ContainsKey(absolutePath))
+                        if (root.TryGetProperty("data", out var dataElement))
                         {
-                            results[absolutePath] = new SearchResult { File = absolutePath };
+                            var relativePath = dataElement.GetProperty("path").GetProperty("text").GetString() ?? "";
+                            var lineNumber = dataElement.GetProperty("line_number").GetInt32();
+                            var lineText = dataElement.GetProperty("lines").GetProperty("text").GetString() ?? "";
+
+                            // Convert relative path to absolute path using the search directory
+                            var absolutePath = Path.IsPathRooted(relativePath) 
+                                ? relativePath 
+                                : Path.Combine(searchModel.Directory, relativePath);
+                            
+                            // Normalize the path
+                            absolutePath = Path.GetFullPath(absolutePath);
+
+                            if (!results.ContainsKey(absolutePath))
+                            {
+                                results[absolutePath] = new SearchResult { File = absolutePath };
+                            }
+
+                            results[absolutePath].Matches.Add(new SearchMatch
+                            {
+                                LineNumber = lineNumber,
+                                Content = lineText.TrimEnd('\n', '\r'),
+                                IsMatch = entryType == "match"
+                            });
                         }
-
-                        results[absolutePath].Matches.Add(new SearchMatch
-                        {
-                            LineNumber = lineNumber,
-                            Content = lineText.TrimEnd('\n', '\r')
-                        });
                     }
                 }
             }

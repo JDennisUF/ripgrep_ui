@@ -4,6 +4,7 @@
 @inject DirectoryBrowserService DirectoryService
 @inject EditorLaunchService EditorService
 @inject EditorSettingsService SettingsService
+@inject HistoryService HistoryService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Ripgrep UI</PageTitle>
@@ -134,13 +135,19 @@
                                     </div>
                                 </div>
                             </div>
-                            @foreach (var match in result.Matches)
+                            @{
+                                var orderedMatches = result.Matches.OrderBy(m => m.LineNumber).ToList();
+                                var previousLineNumber = -1;
+                            }
+                            @for (int i = 0; i < orderedMatches.Count; i++)
                             {
-                                <div class="result-line">
+                                var match = orderedMatches[i];
+                                var isFirstInChunk = searchModel.ContextLines > 0 && (i == 0 || (match.LineNumber - previousLineNumber > 1));
+                                <div class="result-line @(match.IsMatch ? "match-line" : "context-line") @(isFirstInChunk ? "first-in-chunk" : "")">
                                     <span class="result-line-number" @onclick="() => LaunchPreferredEditorAtLine(result.File, match.LineNumber)" 
-                                          title="Click to open file at line @match.LineNumber in preferred editor">@match.LineNumber:</span>
-                                    <span>@((MarkupString)HighlightMatches(match.Content, searchModel.Pattern))</span>
+                                          title="Click to open file at line @match.LineNumber in preferred editor">@match.LineNumber:</span><span class="result-line-content">@((MarkupString)(match.IsMatch ? HighlightMatches(match.Content, searchModel.Pattern) : System.Web.HttpUtility.HtmlEncode(match.Content)))</span>
                                 </div>
+                                previousLineNumber = match.LineNumber;
                             }
                         </div>
                     }
@@ -233,17 +240,51 @@
         searchResults.Clear();
         StateHasChanged();
 
+        var startTime = DateTime.Now;
+        var historyEntry = new HistoryEntry
+        {
+            SearchModel = new SearchModel
+            {
+                Pattern = searchModel.Pattern,
+                Directory = searchModel.Directory,
+                FileTypes = searchModel.FileTypes,
+                CaseSensitive = searchModel.CaseSensitive,
+                WholeWord = searchModel.WholeWord,
+                IncludeHidden = searchModel.IncludeHidden,
+                ContextLines = searchModel.ContextLines,
+                MaxResults = searchModel.MaxResults
+            }
+        };
+
         try
         {
-            var startTime = DateTime.Now;
             var result = await RipgrepService.SearchAsync(searchModel);
             searchResults = result.Results;
             commandLine = result.CommandLine;
             searchDuration = DateTime.Now - startTime;
+
+            // Save successful search to history
+            historyEntry.CommandLine = commandLine;
+            historyEntry.Results = searchResults;
+            historyEntry.Duration = searchDuration;
+            historyEntry.ResultCount = searchResults.Count;
+            historyEntry.HasError = false;
+
+            await HistoryService.AddHistoryEntryAsync(historyEntry);
         }
         catch (Exception ex)
         {
             errorMessage = $"Search failed: {ex.Message}";
+            searchDuration = DateTime.Now - startTime;
+
+            // Save failed search to history
+            historyEntry.CommandLine = commandLine;
+            historyEntry.Duration = searchDuration;
+            historyEntry.HasError = true;
+            historyEntry.ErrorMessage = ex.Message;
+            historyEntry.ResultCount = 0;
+
+            await HistoryService.AddHistoryEntryAsync(historyEntry);
         }
         finally
         {

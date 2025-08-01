@@ -1,10 +1,23 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace RipgrepUI.Models;
 
-public class EditorSettings
+public class EditorSettings : IValidatableObject
 {
     public EditorType PreferredEditor { get; set; } = EditorType.VSCode;
     public string? CustomEditorPath { get; set; }
     public string? CustomEditorArgs { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (PreferredEditor == EditorType.Custom)
+        {
+            if (string.IsNullOrWhiteSpace(CustomEditorPath))
+            {
+                yield return new ValidationResult("Custom Editor Path is required when using Custom Editor.", new[] { nameof(CustomEditorPath) });
+            }
+        }
+    }
 }
 
 public enum EditorType

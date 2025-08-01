@@ -1,14 +1,257 @@
 @page "/history"
+@using RipgrepUI.Models
+@inject HistoryService HistoryService
+@inject EditorLaunchService EditorService
+@inject IJSRuntime JSRuntime
 
-<PageTitle>Search History</PageTitle>
+<PageTitle>Search History - Ripgrep UI</PageTitle>
 
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <h2>Search History</h2>
-            <div class="alert alert-info">
-                Search history functionality is not yet implemented. This feature will store your recent searches for easy reuse.
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Search History</h2>
+                <div>
+                    <button class="btn btn-outline-danger" @onclick="ClearHistory" disabled="@(!historyEntries.Any())">
+                        Clear History
+                    </button>
+                </div>
             </div>
+
+            @if (!historyEntries.Any())
+            {
+                <div class="alert alert-info">
+                    <h5>No search history yet</h5>
+                    <p>Your search history will appear here after you perform searches on the main page.</p>
+                    <a href="/" class="btn btn-primary">Go to Search</a>
+                </div>
+            }
+            else
+            {
+                <div class="history-list">
+                    @foreach (var entry in historyEntries)
+                    {
+                        <div class="history-item">
+                            <div class="history-header">
+                                <div class="history-info">
+                                    <div class="history-timestamp">
+                                        @entry.Timestamp.ToString("MMM dd, yyyy HH:mm:ss")
+                                    </div>
+                                    <div class="history-stats">
+                                        @if (entry.HasError)
+                                        {
+                                            <span class="badge bg-danger">Error</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success">@entry.ResultCount results</span>
+                                        }
+                                        <span class="badge bg-secondary">@entry.Duration.TotalMilliseconds.ToString("F0")ms</span>
+                                    </div>
+                                </div>
+                                <div class="history-actions">
+                                    <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => ExpandEntry(entry.Id)">
+                                        @if (expandedEntries.Contains(entry.Id))
+                                        {
+                                            <span>Hide Details</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Show Details</span>
+                                        }
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveEntry(entry.Id)">
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="history-search-info">
+                                <div class="search-pattern">
+                                    <strong>Pattern:</strong> <code>@entry.SearchModel.Pattern</code>
+                                </div>
+                                <div class="search-directory">
+                                    <strong>Directory:</strong> <code>@entry.SearchModel.Directory</code>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(entry.SearchModel.FileTypes))
+                                {
+                                    <div class="search-filetypes">
+                                        <strong>File Types:</strong> <code>@entry.SearchModel.FileTypes</code>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="command-line-display">
+                                <code>@entry.CommandLine</code>
+                            </div>
+
+                            @if (entry.HasError)
+                            {
+                                <div class="alert alert-danger mt-2">
+                                    <strong>Error:</strong> @entry.ErrorMessage
+                                </div>
+                            }
+
+                            @if (expandedEntries.Contains(entry.Id) && !entry.HasError)
+                            {
+                                <div class="history-results">
+                                    @if (entry.Results.Any())
+                                    {
+                                        @foreach (var result in entry.Results)
+                                        {
+                                            <div class="result-item">
+                                                <div class="result-file">
+                                                    <div class="file-header">
+                                                        <a href="#" class="file-link" @onclick="() => LaunchPreferredEditor(result.File)" @onclick:preventDefault="true" 
+                                                           title="Click to open in preferred editor">
+                                                            @result.File
+                                                        </a>
+                                                        <div class="file-actions">
+                                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => CopyToClipboard(result.File)" title="Copy file path">
+                                                                📋
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                @{
+                                                    var orderedMatches = result.Matches.OrderBy(m => m.LineNumber).ToList();
+                                                    var previousLineNumber = -1;
+                                                }
+                                                @for (int i = 0; i < orderedMatches.Count; i++)
+                                                {
+                                                    var match = orderedMatches[i];
+                                                    var isFirstInChunk = entry.SearchModel.ContextLines > 0 && (i == 0 || (match.LineNumber - previousLineNumber > 1));
+                                                    <div class="result-line @(match.IsMatch ? "match-line" : "context-line") @(isFirstInChunk ? "first-in-chunk" : "")">
+                                                        <span class="result-line-number" @onclick="() => LaunchPreferredEditorAtLine(result.File, match.LineNumber)" 
+                                                              title="Click to open file at line @match.LineNumber in preferred editor">@match.LineNumber:</span><span class="result-line-content">@((MarkupString)(match.IsMatch ? HighlightMatches(match.Content, entry.SearchModel.Pattern) : System.Web.HttpUtility.HtmlEncode(match.Content)))</span>
+                                                    </div>
+                                                    previousLineNumber = match.LineNumber;
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-info">
+                                            No results found for this search.
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
         </div>
     </div>
 </div>
+
+@code {
+    private List<HistoryEntry> historyEntries = new();
+    private HashSet<string> expandedEntries = new();
+
+    protected override void OnInitialized()
+    {
+        historyEntries = HistoryService.GetHistory();
+    }
+
+    private void ExpandEntry(string entryId)
+    {
+        if (expandedEntries.Contains(entryId))
+        {
+            expandedEntries.Remove(entryId);
+        }
+        else
+        {
+            expandedEntries.Add(entryId);
+        }
+        StateHasChanged();
+    }
+
+    private async Task RemoveEntry(string entryId)
+    {
+        await HistoryService.RemoveHistoryEntryAsync(entryId);
+        historyEntries = HistoryService.GetHistory();
+        expandedEntries.Remove(entryId);
+        StateHasChanged();
+    }
+
+    private async Task ClearHistory()
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to clear all search history?"))
+        {
+            await HistoryService.ClearHistoryAsync();
+            historyEntries.Clear();
+            expandedEntries.Clear();
+            StateHasChanged();
+        }
+    }
+
+    private string HighlightMatches(string content, string pattern)
+    {
+        if (string.IsNullOrEmpty(pattern))
+            return System.Web.HttpUtility.HtmlEncode(content);
+
+        try
+        {
+            var regex = new System.Text.RegularExpressions.Regex(pattern, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            
+            var encodedContent = System.Web.HttpUtility.HtmlEncode(content);
+            return regex.Replace(encodedContent, match => $"<span class=\"match-highlight\">{match.Value}</span>");
+        }
+        catch
+        {
+            return System.Web.HttpUtility.HtmlEncode(content);
+        }
+    }
+
+    private async Task LaunchPreferredEditor(string filePath)
+    {
+        if (!System.IO.File.Exists(filePath))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"File not found: {filePath}");
+            return;
+        }
+
+        var success = EditorService.LaunchPreferredEditor(filePath);
+        if (!success)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Editor could not be launched for file: {filePath}");
+        }
+    }
+
+    private async Task LaunchPreferredEditorAtLine(string filePath, int lineNumber)
+    {
+        if (!System.IO.File.Exists(filePath))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"File not found: {filePath}");
+            return;
+        }
+
+        var success = EditorService.LaunchPreferredEditor(filePath, lineNumber);
+        if (!success)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Editor could not be launched for file: {filePath} at line {lineNumber}");
+        }
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch (Exception)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("eval", $"prompt('Copy this text:', '{text.Replace("'", "\\'")}')");
+            }
+            catch
+            {
+                // Silent fail
+            }
+        }
+    }
+}
